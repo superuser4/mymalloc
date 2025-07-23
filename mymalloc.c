@@ -25,7 +25,7 @@ void* mymalloc(size_t bytes) {
 	// iterate over the free blocks linkedlist to find a big enough free block for the user
 	Block* list = freeBlockPtr;
 	while (list != NULL) {
-		if (list->size >= bytes) {
+		if (list->size >= bytes && list->status == 0) {
 			list->status = 1;
 			// returns the memory region after header |Block + sizeof(Block)| usable_ptr|
 			return (void*)(list+1); 
@@ -34,6 +34,13 @@ void* mymalloc(size_t bytes) {
 	}
 
 	// No big enough block is found, allocate 
+	Block* newBlock = sbrk(sizeof(Block) + bytes);
+	newBlock->status = 1;
+	newBlock->size = bytes;
+	newBlock->next = NULL;
+
+	list->next = newBlock;
+	return list->next;
 }
 
 void free(void* ptr) {
