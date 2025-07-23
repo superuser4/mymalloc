@@ -14,33 +14,42 @@ void* mymalloc(size_t bytes) {
 	// malloc ran for first time, initalize freeBlockPtr linked-list
 	if (freeBlockPtr == NULL) {
 		Block* newBlock = sbrk(sizeof(Block) + bytes);
+		if (newBlock == (void*)-1) {
+			return NULL;
+		}
 		newBlock->size = bytes;
 		newBlock->next = NULL;
+		newBlock->status = 1;
 
 		freeBlockPtr = newBlock;
-		freeBlockPtr->status = 1;
 		return (void*)(freeBlockPtr+1);
 	}
 
 	// iterate over the free blocks linkedlist to find a big enough free block for the user
 	Block* list = freeBlockPtr;
+	Block* last = NULL;
 	while (list != NULL) {
 		if (list->size >= bytes && list->status == 0) {
 			list->status = 1;
 			// returns the memory region after header |Block + sizeof(Block)| usable_ptr|
 			return (void*)(list+1); 
 		}
+		last = list;
 		list = list->next;
 	}
 
 	// No big enough block is found, allocate 
 	Block* newBlock = sbrk(sizeof(Block) + bytes);
+	if (newBlock == (void*)-1) {
+		return NULL;
+	}
+
 	newBlock->status = 1;
 	newBlock->size = bytes;
 	newBlock->next = NULL;
-
-	list->next = newBlock;
-	return list->next;
+	
+	last->next = newBlock;
+	return (void*) (newBlock+1);
 }
 
 void free(void* ptr) {
