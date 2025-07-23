@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 
@@ -52,10 +53,30 @@ void* mymalloc(size_t bytes) {
 	return (void*) (newBlock+1);
 }
 
-void free(void* ptr) {
+void myfree(void* ptr) {
 }
 
 int main() {
-	mymalloc(64);
+	char* a = (char*)mymalloc(10);
+	char* b = (char*)mymalloc(20);
+	char* c = (char*)mymalloc(30);
+
+	// Write to allocated memory
+	strcpy(a, "hello");
+	strcpy(b, "world");
+	strcpy(c, "!");
+
+	printf("%s %s%s\n", a, b, c);  // Should print: hello world!
+
+	// Print memory addresses 
+	printf("a: %p\n", a);
+	printf("b: %p\n", b);
+	printf("c: %p\n", c);
+
+	// Check distance between blocks (rough fragmentation check)
+	printf("Distance a -> b: %ld bytes\n", (char*)b - (char*)a);
+	printf("Distance b -> c: %ld bytes\n", (char*)c - (char*)b);
+
+	return 0;
 }
 
