@@ -2,6 +2,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <assert.h>
 
 typedef struct Block {
 	size_t size;
@@ -54,29 +55,76 @@ void* mymalloc(size_t bytes) {
 }
 
 void myfree(void* ptr) {
+	Block* header = (Block*)ptr - 1;
+	
+	if (ptr == NULL || header->status == 0) {
+		return;
+	}
+	header->status = 0;
+
+	if (header->next != NULL) {
+		if (header->next->status == 0) {
+			// check adjacency
+			char* end_of_block = (char*)header + sizeof(Block) + header->size;  
+			if ((void*)end_of_block == (void*)header->next) {
+				// mark as header->next memory region as this block's
+				header->size += header->next->size;
+				
+				// remove from linked list
+				header->next = header->next->next;
+			}
+		}
+	}
 }
 
 int main() {
-	char* a = (char*)mymalloc(10);
-	char* b = (char*)mymalloc(20);
-	char* c = (char*)mymalloc(30);
+    printf("========== Basic Allocation ==========\n");
+    char* a = (char*)mymalloc(10);
+    char* b = (char*)mymalloc(20);
+    char* c = (char*)mymalloc(30);
+    strcpy(a, "Hello");
+    strcpy(b, "World");
+    strcpy(c, "!");
+    printf("a: %s\nb: %s\nc: %s\n", a, b, c);
 
-	// Write to allocated memory
-	strcpy(a, "hello");
-	strcpy(b, "world");
-	strcpy(c, "!");
+    printf("\n========== Address & Distance Check ==========\n");
+    printf("a: %p\n", (void*)a);
+    printf("b: %p\n", (void*)b);
+    printf("c: %p\n", (void*)c);
+    printf("Distance a -> b: %ld bytes\n", (char*)b - (char*)a);
+    printf("Distance b -> c: %ld bytes\n", (char*)c - (char*)b);
 
-	printf("%s %s%s\n", a, b, c);  // Should print: hello world!
+    printf("\n========== Free and Reuse ==========\n");
+    myfree(b);
+    char* b2 = (char*)mymalloc(20);
+    printf("Reallocated b2 (should reuse b): %p (was %p)\n", (void*)b2, (void*)b);
+    strcpy(b2, "Reuse");
+    printf("b2: %s\n", b2);
 
-	// Print memory addresses 
-	printf("a: %p\n", a);
-	printf("b: %p\n", b);
-	printf("c: %p\n", c);
+    printf("\n========== Coalescing Check ==========\n");
+    myfree(a);
+    myfree(c);
+    // Now, a and c are free and (probably) adjacent; test a bigger alloc:
+    char* ac = (char*)mymalloc(45);
+    printf("Allocated ac (should fit in coalesced a+c): %p\n", (void*)ac);
+    strcpy(ac, "Coalesced");
+    printf("ac: %s\n", ac);
 
-	// Check distance between blocks (rough fragmentation check)
-	printf("Distance a -> b: %ld bytes\n", (char*)b - (char*)a);
-	printf("Distance b -> c: %ld bytes\n", (char*)c - (char*)b);
+    printf("\n========== Double Free and NULL Free Safety ==========\n");
+    myfree(ac);    // Normal free
+    myfree(ac);    // Double free (should be safe)
+    myfree(NULL);  // NULL free (should be safe)
 
-	return 0;
+    printf("\n========== Stress Test (Allocate + Free Loop) ==========\n");
+    for (int i = 0; i < 1000; i++) {
+        char* temp = (char*)mymalloc(16);
+        assert(temp != NULL);  // Make sure allocation succeeds
+        temp[0] = 'A';
+        myfree(temp);
+    }
+    printf("Stress test passed.\n");
+
+    printf("\n========== All tests completed successfully ==========\n");
+    return 0;
 }
 
